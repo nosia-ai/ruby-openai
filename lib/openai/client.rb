@@ -109,6 +109,10 @@ module OpenAI
       end
     end
 
+    def infomaniak?
+      @api_type&.to_sym == :infomaniak
+    end
+
     def inspect
       vars = instance_variables.map do |var|
         value = instance_variable_get(var)
