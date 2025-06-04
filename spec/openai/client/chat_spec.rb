@@ -129,7 +129,7 @@ RSpec.describe OpenAI::Client do
           end
 
           context "with an error response with a JSON body" do
-            let(:cassette) { "#{model} streamed chat with json error response".downcase }
+            let(:cassette) { "mocks/#{model} streamed chat with json error response".downcase }
 
             it "raises an HTTP error with the parsed body" do
               VCR.use_cassette(cassette, record: :none) do
@@ -151,7 +151,7 @@ RSpec.describe OpenAI::Client do
           end
 
           context "with an error response without a JSON body" do
-            let(:cassette) { "#{model} streamed chat with error response".downcase }
+            let(:cassette) { "mocks/#{model} streamed chat with error response".downcase }
 
             it "raises an HTTP error" do
               VCR.use_cassette(cassette, record: :none) do
@@ -181,6 +181,34 @@ RSpec.describe OpenAI::Client do
             end
 
             expect(content.split.empty?).to eq(false)
+          end
+        end
+      end
+
+      context "with Deepseek + model: deepseek-chat" do
+        let(:uri_base) { "https://api.deepseek.com/" }
+        let(:provider) { "deepseek" }
+        let(:model) { "deepseek-chat" }
+        let(:response) do
+          OpenAI::Client.new({ uri_base: uri_base }).chat(
+            parameters: parameters
+          )
+        end
+        let(:chunks) { [] }
+        let(:stream) do
+          proc do |chunk, _bytesize|
+            chunks << chunk
+          end
+        end
+
+        it "succeeds" do
+          VCR.use_cassette(cassette) do
+            tap do
+              response
+            rescue Faraday::UnauthorizedError
+              pending "This test needs the `OPENAI_ACCESS_TOKEN` to be a Deepseek API key"
+            end
+            expect(chunks.dig(0, "choices", 0, "index")).to eq(0)
           end
         end
       end

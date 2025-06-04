@@ -21,10 +21,21 @@ RSpec.describe OpenAI::Client do
       end
 
       context "with an invalid purpose" do
-        let(:cassette_label) { "unused" }
+        let(:cassette_label) { "invalid purpose" }
         let(:upload_purpose) { "invalid" }
 
-        it { expect { upload }.to raise_error(ArgumentError) }
+        it "logs a warning" do
+          expected_message = "The purpose 'invalid' for file 'sentiment.jsonl' is not in the known "
+          expected_message += "purpose list: #{OpenAI::Files::PURPOSES.join(', ')}."
+
+          expect(OpenAI).to receive(:log_message)
+            .with("Warning", expected_message, :warn)
+            .and_call_original
+
+          allow_any_instance_of(OpenAI::Client).to receive(:multipart_post).and_return({})
+
+          upload
+        end
       end
 
       context "with a `File` instance content" do
@@ -125,6 +136,41 @@ RSpec.describe OpenAI::Client do
         VCR.use_cassette(cassette) do
           expect(response["id"]).to eq(upload_id)
           expect(response["deleted"]).to eq(true)
+        end
+      end
+    end
+
+    describe "#fetch_image" do
+      let(:cassette) { "files fetch_image" }
+      let(:upload_cassette) { "#{cassette} upload" }
+      let(:retrieve_cassette) { "#{cassette} retrieve" }
+      let(:filename) { "image.png" }
+      let(:file) { File.join(RSPEC_ROOT, "fixtures/files", filename) }
+      let(:upload_purpose) { "vision" }
+      let(:response) { OpenAI::Client.new.files.content(id: upload_id) }
+
+      before do
+        # We need to check the file has been processed by OpenAI
+        # before we can delete it.
+        retrieved = VCR.use_cassette(retrieve_cassette) do
+          OpenAI::Client.new.files.retrieve(id: upload_id)
+        end
+        tries = 0
+        until retrieved["status"] == "processed"
+          raise "File not processed after 10 tries" if tries > 10
+
+          sleep(1)
+          retrieved = VCR.use_cassette(retrieve_cassette, record: :all) do
+            OpenAI::Client.new.files.retrieve(id: upload_id)
+          end
+          tries += 1
+        end
+      end
+
+      it "succeeds in uploading and retrieving an image" do
+        VCR.use_cassette(cassette) do
+          expect(response).to be_a(String)
+          expect(response.size).to be > 0
         end
       end
     end

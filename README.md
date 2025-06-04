@@ -6,18 +6,22 @@
 
 Use the [OpenAI API](https://openai.com/blog/openai-api/) with Ruby! 🤖❤️
 
-Stream text with GPT-4o, transcribe and translate audio with Whisper, or create images with DALL·E...
+Stream chats with the Responses API, transcribe and translate audio with Whisper, create images with DALL·E, and much more...
 
-[🚀 Hire me to build your Rails+AI app](https://insertrobot.com) | [📚 Rails AI](https://railsai.com) | [🎮 Ruby AI Builders Discord](https://discord.gg/k4Uc224xVD) | [🐦 X](https://x.com/alexrudall) | [🧠 Anthropic Gem](https://github.com/alexrudall/anthropic) | [🚂 Midjourney Gem](https://github.com/alexrudall/midjourney)
+💥 Click [subscribe now](https://mailchi.mp/8c7b574726a9/ruby-openai) to hear first about new releases in the Rails AI newsletter!
+
+[![RailsAI Newsletter](https://github.com/user-attachments/assets/737cbb99-6029-42b8-9f22-a106725a4b1f)](https://mailchi.mp/8c7b574726a9/ruby-openai)
+
+[🎮 Ruby AI Builders Discord](https://discord.gg/k4Uc224xVD) | [🐦 X](https://x.com/alexrudall) | [🧠 Anthropic Gem](https://github.com/alexrudall/anthropic) | [🚂 Midjourney Gem](https://github.com/alexrudall/midjourney)
 
 ## Contents
 
 - [Ruby OpenAI](#ruby-openai)
-- [Table of Contents](#table-of-contents)
+  - [Contents](#contents)
   - [Installation](#installation)
     - [Bundler](#bundler)
     - [Gem install](#gem-install)
-  - [Usage](#usage)
+  - [How to use](#how-to-use)
     - [Quickstart](#quickstart)
     - [With Config](#with-config)
       - [Custom timeout or base URI](#custom-timeout-or-base-uri)
@@ -26,6 +30,7 @@ Stream text with GPT-4o, transcribe and translate audio with Whisper, or create 
         - [Errors](#errors)
         - [Faraday middleware](#faraday-middleware)
       - [Azure](#azure)
+      - [Deepseek](#deepseek)
       - [Ollama](#ollama)
       - [Groq](#groq)
     - [Counting Tokens](#counting-tokens)
@@ -34,6 +39,14 @@ Stream text with GPT-4o, transcribe and translate audio with Whisper, or create 
       - [Streaming Chat](#streaming-chat)
       - [Vision](#vision)
       - [JSON Mode](#json-mode)
+    - [Responses API](#responses-api)
+      - [Create a Response](#create-a-response)
+      - [Follow-up Messages](#follow-up-messages)
+      - [Tool Calls](#tool-calls)
+      - [Streaming](#streaming)
+      - [Retrieve a Response](#retrieve-a-response)
+      - [Delete a Response](#delete-a-response)
+      - [List Input Items](#list-input-items)
     - [Functions](#functions)
     - [Completions](#completions)
     - [Embeddings](#embeddings)
@@ -62,8 +75,10 @@ Stream text with GPT-4o, transcribe and translate audio with Whisper, or create 
       - [Translate](#translate)
       - [Transcribe](#transcribe)
       - [Speech](#speech)
+    - [Usage](#usage)
     - [Errors](#errors-1)
   - [Development](#development)
+    - [To check for deprecations](#to-check-for-deprecations)
   - [Release](#release)
   - [Contributing](#contributing)
   - [License](#license)
@@ -82,7 +97,7 @@ gem "ruby-openai"
 And then execute:
 
 ```bash
-$ bundle install
+bundle install
 ```
 
 ### Gem install
@@ -90,7 +105,7 @@ $ bundle install
 Or install with:
 
 ```bash
-$ gem install ruby-openai
+gem install ruby-openai
 ```
 
 and require with:
@@ -99,7 +114,7 @@ and require with:
 require "openai"
 ```
 
-## Usage
+## How to use
 
 - Get your API key from [https://platform.openai.com/account/api-keys](https://platform.openai.com/account/api-keys)
 - If you belong to multiple organizations, you can get your Organization ID from [https://platform.openai.com/account/org-settings](https://platform.openai.com/account/org-settings)
@@ -122,6 +137,7 @@ For a more robust setup, you can configure the gem with your API keys, for examp
 ```ruby
 OpenAI.configure do |config|
   config.access_token = ENV.fetch("OPENAI_ACCESS_TOKEN")
+  config.admin_token = ENV.fetch("OPENAI_ADMIN_TOKEN") # Optional, used for admin endpoints, created here: https://platform.openai.com/settings/organization/admin-keys
   config.organization_id = ENV.fetch("OPENAI_ORGANIZATION_ID") # Optional
   config.log_errors = true # Highly recommended in development, so you can see what errors OpenAI is returning. Not recommended in production because it could leak private data to your logs.
 end
@@ -133,10 +149,10 @@ Then you can create a client like this:
 client = OpenAI::Client.new
 ```
 
-You can still override the config defaults when making new clients; any options not included will fall back to any global config set with OpenAI.configure. e.g. in this example the organization_id, request_timeout, etc. will fallback to any set globally using OpenAI.configure, with only the access_token overridden:
+You can still override the config defaults when making new clients; any options not included will fall back to any global config set with OpenAI.configure. e.g. in this example the organization_id, request_timeout, etc. will fallback to any set globally using OpenAI.configure, with only the access_token and admin_token overridden:
 
 ```ruby
-client = OpenAI::Client.new(access_token: "access_token_goes_here")
+client = OpenAI::Client.new(access_token: "access_token_goes_here", admin_token: "admin_token_goes_here")
 ```
 
 #### Custom timeout or base URI
@@ -164,8 +180,9 @@ or when configuring the gem:
 ```ruby
 OpenAI.configure do |config|
   config.access_token = ENV.fetch("OPENAI_ACCESS_TOKEN")
-  config.log_errors = true # Optional
+  config.admin_token = ENV.fetch("OPENAI_ADMIN_TOKEN") # Optional, used for admin endpoints, created here: https://platform.openai.com/settings/organization/admin-keys
   config.organization_id = ENV.fetch("OPENAI_ORGANIZATION_ID") # Optional
+  config.log_errors = true # Optional
   config.uri_base = "https://oai.hconeai.com/" # Optional
   config.request_timeout = 240 # Optional
   config.extra_headers = {
@@ -221,6 +238,28 @@ end
 ```
 
 where `AZURE_OPENAI_URI` is e.g. `https://custom-domain.openai.azure.com/openai/deployments/gpt-35-turbo`
+
+#### Deepseek
+
+[Deepseek](https://api-docs.deepseek.com/) is compatible with the OpenAI chat API. Get an access token from [here](https://platform.deepseek.com/api_keys), then:
+
+```ruby
+client = OpenAI::Client.new(
+  access_token: "deepseek_access_token_goes_here",
+  uri_base: "https://api.deepseek.com/"
+)
+
+client.chat(
+  parameters: {
+    model: "deepseek-chat", # Required.
+    messages: [{ role: "user", content: "Hello!"}], # Required.
+    temperature: 0.7,
+    stream: proc do |chunk, _bytesize|
+     print chunk.dig("choices", 0, "delta", "content")
+    end
+  }
+)
+```
 
 #### Ollama
 
@@ -296,6 +335,12 @@ There are different models that can be used to generate text. For a full list an
 ```ruby
 client.models.list
 client.models.retrieve(id: "gpt-4o")
+```
+
+You can also delete any finetuned model you generated, if you're an account Owner on your OpenAI organization:
+
+```ruby
+client.models.delete(id: "ft:gpt-4o-mini:acemeco:suffix:abc123")
 ```
 
 ### Chat
@@ -433,6 +478,102 @@ You can stream it as well!
   #     }
   #   }
   # }
+```
+
+### Responses API
+
+[OpenAI's most advanced interface for generating model responses](https://platform.openai.com/docs/api-reference/responses). Supports text and image inputs, and text outputs. Create stateful interactions with the model, using the output of previous responses as input. Extend the model's capabilities with built-in tools for file search, web search, computer use, and more. Allow the model access to external systems and data using function calling.
+
+#### Create a Response
+
+```ruby
+response = client.responses.create(parameters: {
+  model: "gpt-4o",
+  input: "Hello! I'm Szymon!"
+})
+puts response.dig("output", 0, "content", 0, "text")
+# => Hello Szymon! How can I assist you today?
+```
+
+#### Follow-up Messages
+
+```ruby
+followup = client.responses.create(parameters: {
+  model: "gpt-4o",
+  input: "Remind me, what is my name?",
+  previous_response_id: response["id"]
+})
+puts followup.dig("output", 0, "content", 0, "text")
+# => Your name is Szymon! How can I help you today?
+```
+
+#### Tool Calls
+
+```ruby
+response = client.responses.create(parameters: {
+  model: "gpt-4o",
+  input: "What's the weather in Paris?",
+  tools: [
+    {
+      "type" => "function",
+      "name" => "get_current_weather",
+      "description" => "Get the current weather in a given location",
+      "parameters" => {
+        "type" => "object",
+        "properties" => {
+          "location" => {
+            "type" => "string",
+            "description" => "The geographic location to get the weather for"
+          }
+        },
+        "required" => ["location"]
+      }
+    }
+  ]
+})
+puts response.dig("output", 0, "name")
+# => "get_current_weather"
+```
+
+#### Streaming
+
+```ruby
+client.responses.create(
+  parameters: {
+    model: "gpt-4o", # Required.
+    input: "Hello!", # Required.
+    stream: proc do |chunk, _bytesize|
+      if chunk["type"] == "response.output_text.delta"
+        print chunk["delta"]
+        $stdout.flush  # Ensure output is displayed immediately
+      end
+    end
+  }
+)
+# => "Hi there! How can I assist you today?..."
+```
+
+#### Retrieve a Response
+
+```ruby
+retrieved_response = client.responses.retrieve(response_id: response["id"])
+puts retrieved_response["object"]
+# => "response"
+```
+
+#### Delete a Response
+
+```ruby
+deletion = client.responses.delete(response_id: response["id"])
+puts deletion["deleted"]
+# => true
+```
+
+#### List Input Items
+
+```ruby
+input_items = client.responses.input_items(response_id: response["id"])
+puts input_items["object"] # => "list"
 ```
 
 ### Functions
@@ -740,6 +881,12 @@ You can also capture the events for a job:
 client.finetunes.list_events(id: fine_tune_id)
 ```
 
+You can also delete any finetuned model you generated, if you're an account Owner on your OpenAI organization:
+
+```ruby
+client.models.delete(id: fine_tune_id)
+```
+
 ### Vector Stores
 
 Vector Store objects give the File Search tool the ability to search your files.
@@ -776,6 +923,27 @@ response = client.vector_stores.modify(
   id: vector_store_id,
   parameters: {
     name: "Modified Test Vector Store",
+  }
+)
+```
+
+You can search a vector store for relevant chunks based on a query:
+
+```ruby
+response = client.vector_stores.search(
+  id: vector_store_id,
+  parameters: {
+    query: "What is the return policy?",
+    max_num_results: 20,
+    ranking_options: {
+      # Add any ranking options here in line with the API documentation
+    },
+    rewrite_query: true,
+    filters: {
+      type: "eq",
+      property: "region",
+      value: "us"
+    }
   }
 )
 ```
@@ -1457,6 +1625,65 @@ File.binwrite('demo.mp3', response)
 # => mp3 file that plays: "This is a speech test!"
 ```
 
+### Usage
+
+The Usage API provides information about the cost of various OpenAI services within your organization.
+To use Admin APIs like Usage, you need to set an OPENAI_ADMIN_TOKEN, which can be generated [here](https://platform.openai.com/settings/organization/admin-keys).
+
+```ruby
+OpenAI.configure do |config|
+  config.admin_token = ENV.fetch("OPENAI_ADMIN_TOKEN")
+end
+
+# or
+
+client = OpenAI::Client.new(admin_token: "123abc")
+```
+
+You can retrieve usage data for different endpoints and time periods:
+
+```ruby
+one_day_ago = Time.now.to_i - 86_400
+
+# Retrieve costs data
+response = client.usage.costs(parameters: { start_time: one_day_ago })
+response["data"].each do |bucket|
+  bucket["results"].each do |result|
+    puts "#{Time.at(bucket["start_time"]).to_date}: $#{result.dig("amount", "value").round(2)}"
+  end
+end
+=> 2025-02-09: $0.0
+=> 2025-02-10: $0.42
+
+# Retrieve completions usage data
+response = client.usage.completions(parameters: { start_time: one_day_ago })
+puts response["data"]
+
+# Retrieve embeddings usage data
+response = client.usage.embeddings(parameters: { start_time: one_day_ago })
+puts response["data"]
+
+# Retrieve moderations usage data
+response = client.usage.moderations(parameters: { start_time: one_day_ago })
+puts response["data"]
+
+# Retrieve image generation usage data
+response = client.usage.images(parameters: { start_time: one_day_ago })
+puts response["data"]
+
+# Retrieve audio speech usage data
+response = client.usage.audio_speeches(parameters: { start_time: one_day_ago })
+puts response["data"]
+
+# Retrieve audio transcription usage data
+response = client.usage.audio_transcriptions(parameters: { start_time: one_day_ago })
+puts response["data"]
+
+# Retrieve vector stores usage data
+response = client.usage.vector_stores(parameters: { start_time: one_day_ago })
+puts response["data"]
+```
+
 ### Errors
 
 HTTP errors can be caught like this:
@@ -1478,15 +1705,17 @@ To install this gem onto your local machine, run `bundle exec rake install`.
 To run all tests, execute the command `bundle exec rake`, which will also run the linter (Rubocop). This repository uses [VCR](https://github.com/vcr/vcr) to log API requests.
 
 > [!WARNING]
-> If you have an `OPENAI_ACCESS_TOKEN` in your `ENV`, running the specs will use this to run the specs against the actual API, which will be slow and cost you money - 2 cents or more! Remove it from your environment with `unset` or similar if you just want to run the specs against the stored VCR responses.
+> If you have an `OPENAI_ACCESS_TOKEN` and `OPENAI_ADMIN_TOKEN` in your `ENV`, running the specs will hit the actual API, which will be slow and cost you money - 2 cents or more! Remove them from your environment with `unset` or similar if you just want to run the specs against the stored VCR responses.
+
+### To check for deprecations
+
+```
+bundle exec ruby -e "Warning[:deprecated] = true; require 'rspec'; exit RSpec::Core::Runner.run(['spec/openai/client/http_spec.rb:25'])"
+```
 
 ## Release
 
-First run the specs without VCR so they actually hit the API. This will cost 2 cents or more. Set OPENAI_ACCESS_TOKEN in your environment or pass it in like this:
-
-```
-OPENAI_ACCESS_TOKEN=123abc bundle exec rspec
-```
+First run the specs without VCR so they actually hit the API. This will cost 2 cents or more. Set OPENAI_ACCESS_TOKEN and OPENAI_ADMIN_TOKEN in your environment.
 
 Then update the version number in `version.rb`, update `CHANGELOG.md`, run `bundle install` to update Gemfile.lock, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
 
