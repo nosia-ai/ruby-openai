@@ -8,11 +8,28 @@ Use the [OpenAI API](https://openai.com/blog/openai-api/) with Ruby! 🤖❤️
 
 Stream chats with the Responses API, transcribe and translate audio with Whisper, create images with DALL·E, and much more...
 
-💥 Click [subscribe now](https://mailchi.mp/8c7b574726a9/ruby-openai) to hear first about new releases in the Rails AI newsletter!
+**Sponsors**
 
-[![RailsAI Newsletter](https://github.com/user-attachments/assets/737cbb99-6029-42b8-9f22-a106725a4b1f)](https://mailchi.mp/8c7b574726a9/ruby-openai)
+<table>
+<tr>
+<td width="300" align="center" valign="top">
 
-[🎮 Ruby AI Builders Discord](https://discord.gg/k4Uc224xVD) | [🐦 X](https://x.com/alexrudall) | [🧠 Anthropic Gem](https://github.com/alexrudall/anthropic) | [🚂 Midjourney Gem](https://github.com/alexrudall/midjourney)
+[<img src="https://github.com/user-attachments/assets/b97e036d-3f22-4116-be97-8f8d1c432a4f" alt="InferToGo logo: man in suit falling, black and white" width="300" height="300">](https://infertogo.com/?utm_source=ruby-openai)
+
+<sub>_[InferToGo](https://infertogo.com/?utm_source=ruby-openai) - The inference addon for your PaaS application._</sub>
+
+</td>
+<td width="300" align="center" valign="top">
+
+[<img src="https://github.com/user-attachments/assets/3feb834c-2721-404c-a64d-02104ed4aba7" alt="SerpApi logo: Purple rounded square with 4 connected white holes" width="300" height="300">](https://serpapi.com/?utm_source=ruby-openai)
+
+<sub>_[SerpApi - Search API](https://serpapi.com/?utm_source=ruby-openai) - Enhance your LLM's knowledge with data from search engines like Google and Bing using our simple API._</sub>
+
+</td>
+</tr>
+</table>
+
+[🎮 Ruby AI Builders Discord](https://discord.gg/k4Uc224xVD) | [🐦 X](https://x.com/alexrudall) | [🧠 Anthropic Gem](https://github.com/alexrudall/anthropic) | [🚂 Midjourney Gem](https://github.com/alexrudall/midjourney) |  [♥️ Thanks to all sponsors!](https://github.com/sponsors/alexrudall)
 
 ## Contents
 
