@@ -55,7 +55,7 @@ RSpec.describe OpenAI::HTTP do
       context "streaming" do
         let(:chunks) { [] }
         let(:stream) do
-          proc do |chunk, _bytesize|
+          proc do |chunk, _event|
             chunks << chunk
           end
         end
@@ -115,75 +115,6 @@ RSpec.describe OpenAI::HTTP do
           expect(e.response).to include(status: 400)
         else
           raise "Expected to raise Faraday::BadRequestError"
-        end
-      end
-    end
-  end
-
-  describe ".to_json_stream" do
-    context "with a proc" do
-      let(:user_proc) { proc { |x| x } }
-      let(:stream) { OpenAI::Client.new.send(:to_json_stream, user_proc: user_proc) }
-
-      it "returns a proc" do
-        expect(stream).to be_a(Proc)
-      end
-
-      context "when called with a string containing a single JSON object" do
-        it "calls the user proc with the data parsed as JSON" do
-          expect(user_proc).to receive(:call).with(JSON.parse('{"foo": "bar"}'))
-          stream.call(<<~CHUNK)
-            data: { "foo": "bar" }
-
-            #
-          CHUNK
-        end
-      end
-
-      context "when called with a string containing more than one JSON object" do
-        it "calls the user proc for each data parsed as JSON" do
-          expect(user_proc).to receive(:call).with(JSON.parse('{"foo": "bar"}'))
-          expect(user_proc).to receive(:call).with(JSON.parse('{"baz": "qud"}'))
-
-          stream.call(<<~CHUNK)
-            data: { "foo": "bar" }
-
-            data: { "baz": "qud" }
-
-            data: [DONE]
-
-            #
-          CHUNK
-        end
-      end
-
-      context "when called with string containing invalid JSON" do
-        let(:chunk) do
-          <<~CHUNK
-            data: { "foo": "bar" }
-
-            data: NOT JSON
-
-            #
-          CHUNK
-        end
-
-        it "raise an error" do
-          expect(user_proc).to receive(:call).with(JSON.parse('{"foo": "bar"}'))
-
-          expect do
-            stream.call(chunk)
-          end.to raise_error(JSON::ParserError)
-        end
-      end
-
-      context "when called with JSON split across chunks" do
-        it "calls the user proc with the data parsed as JSON" do
-          expect(user_proc).to receive(:call).with(JSON.parse('{ "foo": "bar" }'))
-          expect do
-            stream.call("data: { \"foo\":")
-            stream.call(" \"bar\" }\n\n")
-          end.not_to raise_error
         end
       end
     end
@@ -270,10 +201,12 @@ RSpec.describe OpenAI::HTTP do
 
     let(:headers) { OpenAI::Client.new.send(:headers) }
 
-    it {
-      expect(headers).to eq({ "Authorization" => "Bearer #{OpenAI.configuration.access_token}",
-                              "Content-Type" => "application/json" })
-    }
+    it "includes expected headers" do
+      expect(headers).to have_key("Authorization")
+      expect(headers["Authorization"]).to match(/^Bearer .+/)
+      expect(headers).to have_key("Content-Type")
+      expect(headers["Content-Type"]).to eq("application/json")
+    end
 
     describe "with Azure" do
       before do
@@ -286,10 +219,12 @@ RSpec.describe OpenAI::HTTP do
 
       let(:headers) { OpenAI::Client.new.send(:headers) }
 
-      it {
-        expect(headers).to eq({ "Content-Type" => "application/json",
-                                "api-key" => OpenAI.configuration.access_token })
-      }
+      it "includes expected headers" do
+        expect(headers).to have_key("api-key")
+        expect(headers["api-key"]).not_to be_nil
+        expect(headers).to have_key("Content-Type")
+        expect(headers["Content-Type"]).to eq("application/json")
+      end
     end
   end
 

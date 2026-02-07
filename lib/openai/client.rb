@@ -1,3 +1,4 @@
+# rubocop:disable Metrics/ClassLength
 module OpenAI
   class Client
     include OpenAI::HTTP
@@ -92,12 +93,20 @@ module OpenAI
       @batches ||= OpenAI::Batches.new(client: self)
     end
 
+    def realtime
+      @realtime ||= OpenAI::Realtime.new(client: self)
+    end
+
     def moderations(parameters: {})
       json_post(path: "/moderations", parameters: parameters)
     end
 
     def usage
       @usage ||= OpenAI::Usage.new(client: self)
+    end
+
+    def conversations
+      @conversations ||= OpenAI::Conversations.new(client: self)
     end
 
     def azure?
@@ -136,3 +145,4 @@ module OpenAI
     end
   end
 end
+# rubocop:enable Metrics/ClassLength

@@ -77,12 +77,61 @@ RSpec.describe OpenAI::Client do
               end
             end
           end
+
+          context "with multiple tool calls" do
+            let(:cassette) { "#{model} multiple tool calls full conversation".downcase }
+            let(:messages) do
+              [
+                {
+                  "role" => "user",
+                  "content" => "What is the weather like in San Francisco and Japan?"
+                }
+              ]
+            end
+            let(:parameters) do
+              {
+                model: model,
+                messages: messages,
+                stream: stream,
+                tools: tools,
+                tool_choice: "required"
+              }
+            end
+
+            it "handles full conversation with multiple tool calls" do
+              VCR.use_cassette(cassette) do
+                message = response.dig("choices", 0, "message")
+
+                if message["role"] == "assistant" && message["tool_calls"]
+                  messages << message
+
+                  message["tool_calls"].each do |tool_call|
+                    messages << {
+                      tool_call_id: tool_call["id"],
+                      role: "tool",
+                      name: "get_current_weather",
+                      content: "The weather is nice 🌞"
+                    }
+                  end
+
+                  second_response = OpenAI::Client.new.chat(
+                    parameters: {
+                      model: model,
+                      messages: messages
+                    }
+                  )
+
+                  expect(second_response["error"]).to be_nil
+                end
+              end
+            end
+          end
         end
 
         describe "streaming" do
           let(:chunks) { [] }
           let(:stream) do
-            proc do |chunk, _bytesize|
+            proc do |chunk, _event|
               chunks << chunk
             end
           end
@@ -196,7 +245,7 @@ RSpec.describe OpenAI::Client do
         end
         let(:chunks) { [] }
         let(:stream) do
-          proc do |chunk, _bytesize|
+          proc do |chunk, _event|
             chunks << chunk
           end
         end
@@ -224,7 +273,7 @@ RSpec.describe OpenAI::Client do
         end
         let(:chunks) { [] }
         let(:stream) do
-          proc do |chunk, _bytesize|
+          proc do |chunk, _event|
             chunks << chunk
           end
         end

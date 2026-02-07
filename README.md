@@ -6,7 +6,7 @@
 
 Use the [OpenAI API](https://openai.com/blog/openai-api/) with Ruby! 🤖❤️
 
-Stream chats with the Responses API, transcribe and translate audio with Whisper, create images with DALL·E, and much more...
+Stream GPT-5 chats with the Responses API, initiate Realtime WebRTC conversations, and much more...
 
 **Sponsors**
 
@@ -50,6 +50,7 @@ Stream chats with the Responses API, transcribe and translate audio with Whisper
       - [Deepseek](#deepseek)
       - [Ollama](#ollama)
       - [Groq](#groq)
+      - [Gemini](#gemini)
     - [Counting Tokens](#counting-tokens)
     - [Models](#models)
     - [Chat](#chat)
@@ -75,6 +76,7 @@ Stream chats with the Responses API, transcribe and translate audio with Whisper
     - [Vector Stores](#vector-stores)
     - [Vector Store Files](#vector-store-files)
     - [Vector Store File Batches](#vector-store-file-batches)
+    - [Conversations](#conversations)
     - [Assistants](#assistants)
     - [Threads and Messages](#threads-and-messages)
     - [Runs](#runs)
@@ -92,6 +94,7 @@ Stream chats with the Responses API, transcribe and translate audio with Whisper
       - [Translate](#translate)
       - [Transcribe](#transcribe)
       - [Speech](#speech)
+    - [Real-Time](#real-time)
     - [Usage](#usage)
     - [Errors](#errors-1)
   - [Development](#development)
@@ -233,7 +236,9 @@ client = OpenAI::Client.new(log_errors: true)
 
 ##### Faraday middleware
 
-You can pass [Faraday middleware](https://lostisland.github.io/faraday/#/middleware/index) to the client in a block, eg. to enable verbose logging with Ruby's [Logger](https://ruby-doc.org/3.2.2/stdlibs/logger/Logger.html):
+You can pass [Faraday middleware](https://lostisland.github.io/faraday/#/middleware/index) to the client in a block, eg:
+
+- To enable verbose logging with Ruby's [Logger](https://ruby-doc.org/3.2.2/stdlibs/logger/Logger.html):
 
 ```ruby
 client = OpenAI::Client.new do |f|
@@ -241,6 +246,13 @@ client = OpenAI::Client.new do |f|
 end
 ```
 
+- To add a web debugging proxy like [Charles](https://www.charlesproxy.com/documentation/welcome/):
+
+```ruby
+  client = OpenAI::Client.new do |f|
+    f.proxy = { uri: "http://localhost:8888" }
+  end
+```
 #### Azure
 
 To use the [Azure OpenAI Service](https://learn.microsoft.com/en-us/azure/cognitive-services/openai/) API, you can configure the gem like this:
@@ -271,7 +283,7 @@ client.chat(
     model: "deepseek-chat", # Required.
     messages: [{ role: "user", content: "Hello!"}], # Required.
     temperature: 0.7,
-    stream: proc do |chunk, _bytesize|
+    stream: proc do |chunk, _event|
      print chunk.dig("choices", 0, "delta", "content")
     end
   }
@@ -302,7 +314,7 @@ client.chat(
     model: "llama3", # Required.
     messages: [{ role: "user", content: "Hello!"}], # Required.
     temperature: 0.7,
-    stream: proc do |chunk, _bytesize|
+    stream: proc do |chunk, _event|
       print chunk.dig("choices", 0, "delta", "content")
     end
   }
@@ -326,11 +338,35 @@ client.chat(
     model: "llama3-8b-8192", # Required.
     messages: [{ role: "user", content: "Hello!"}], # Required.
     temperature: 0.7,
+    stream: proc do |chunk, _event|
+     print chunk.dig("choices", 0, "delta", "content")
+    end
+  }
+)
+```
+
+#### Gemini
+
+[Gemini API Chat](https://ai.google.dev/gemini-api/docs/openai) is also broadly compatible with the OpenAI API, and [currently in beta](https://ai.google.dev/gemini-api/docs/openai#current-limitations). Get an access token from [here](https://aistudio.google.com/app/apikey), then:
+
+```ruby
+client = OpenAI::Client.new(
+  access_token: "gemini_access_token_goes_here",
+  uri_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
+)
+
+client.chat(
+  parameters: {
+    model: "gemini-1.5-flash", # Required.
+    messages: [{ role: "user", content: "Hello!"}], # Required.
+    temperature: 0.7,
     stream: proc do |chunk, _bytesize|
      print chunk.dig("choices", 0, "delta", "content")
     end
   }
 )
+
+# => Hello there! How can I help you today?
 ```
 
 ### Counting Tokens
@@ -388,7 +424,7 @@ client.chat(
     model: "gpt-4o", # Required.
     messages: [{ role: "user", content: "Describe a character called Anna!"}], # Required.
     temperature: 0.7,
-    stream: proc do |chunk, _bytesize|
+    stream: proc do |chunk, _event|
       print chunk.dig("choices", 0, "delta", "content")
     end
   }
@@ -474,7 +510,7 @@ You can stream it as well!
       model: "gpt-4o",
       messages: [{ role: "user", content: "Can I have some JSON please?"}],
       response_format: { type: "json_object" },
-      stream: proc do |chunk, _bytesize|
+      stream: proc do |chunk, _event|
         print chunk.dig("choices", 0, "delta", "content")
       end
     }
@@ -505,11 +541,16 @@ You can stream it as well!
 
 ```ruby
 response = client.responses.create(parameters: {
-  model: "gpt-4o",
-  input: "Hello! I'm Szymon!"
+  model: "gpt-5",
+  input: "Hello! I'm Szymon!",
+  reasoning: {
+    "effort": "minimal"
+  }
 })
 puts response.dig("output", 0, "content", 0, "text")
-# => Hello Szymon! How can I assist you today?
+# => Thinking about how to answer this...
+puts response.dig("output", 1, "content", 0, "text")
+# => Hi Szymon! Great to meet you. How can I help today?
 ```
 
 #### Follow-up Messages
@@ -559,7 +600,7 @@ client.responses.create(
   parameters: {
     model: "gpt-4o", # Required.
     input: "Hello!", # Required.
-    stream: proc do |chunk, _bytesize|
+    stream: proc do |chunk, _event|
       if chunk["type"] == "response.output_text.delta"
         print chunk["delta"]
         $stdout.flush  # Ensure output is displayed immediately
@@ -647,6 +688,9 @@ response =
 message = response.dig("choices", 0, "message")
 
 if message["role"] == "assistant" && message["tool_calls"]
+  # For a subsequent message with the role "tool", OpenAI requires the preceding message to have a single tool_calls argument.
+  messages << message
+
   message["tool_calls"].each do |tool_call|
     tool_call_id = tool_call.dig("id")
     function_name = tool_call.dig("function", "name")
@@ -661,9 +705,6 @@ if message["role"] == "assistant" && message["tool_calls"]
       else
         # decide how to handle
       end
-
-    # For a subsequent message with the role "tool", OpenAI requires the preceding message to have a tool_calls argument.
-    messages << message
 
     messages << {
       tool_call_id: tool_call_id,
@@ -1058,6 +1099,128 @@ client.vector_store_file_batches.cancel(
 )
 ```
 
+### Conversations
+
+The [Conversations API](https://platform.openai.com/docs/api-reference/conversations) enables you to create and manage persistent conversations with your models. This is useful for maintaining conversation state across multiple interactions.
+
+**Supported Endpoints:**
+- `POST /v1/conversations` - Create a conversation
+- `GET /v1/conversations/{id}` - Retrieve a conversation
+- `PATCH /v1/conversations/{id}` - Modify a conversation
+- `DELETE /v1/conversations/{id}` - Delete a conversation
+- `POST /v1/conversations/{id}/items` - Create items in a conversation
+- `GET /v1/conversations/{id}/items` - List items in a conversation
+- `GET /v1/conversations/{id}/items/{item_id}` - Get a specific item
+- `DELETE /v1/conversations/{id}/items/{item_id}` - Delete an item
+
+#### Creating a Conversation
+
+To create a new conversation:
+
+```ruby
+response = client.conversations.create(
+  parameters: {
+    metadata: { purpose: "customer_support" }
+  }
+)
+conversation_id = response["id"]
+```
+
+#### Retrieving a Conversation
+
+To retrieve a specific conversation:
+
+```ruby
+conversation = client.conversations.retrieve(id: conversation_id)
+```
+
+#### Modifying a Conversation
+
+To update a conversation's metadata:
+
+```ruby
+response = client.conversations.modify(
+  id: conversation_id,
+  parameters: {
+    metadata: { status: "resolved" }
+  }
+)
+```
+
+#### Deleting a Conversation
+
+To delete a conversation:
+
+```ruby
+response = client.conversations.delete(id: conversation_id)
+```
+
+#### Managing Items in Conversations
+
+You can add, retrieve, and manage items within a conversation.
+
+##### Creating Items
+
+```ruby
+# Create multiple items at once
+response = client.conversations.create_items(
+  conversation_id: conversation_id,
+  parameters: {
+    items: [
+      {
+        type: "message",
+        role: "user",
+        content: [
+          { type: "input_text", text: "Hello!" }
+        ]
+      },
+      {
+        type: "message",
+        role: "assistant",
+        content: [
+          { type: "input_text", text: "How are you?" }
+        ]
+      }
+    ]
+  }
+)
+```
+
+##### Listing Items
+
+```ruby
+# List all items in a conversation
+response = client.conversations.list_items(conversation_id: conversation_id)
+items = response["data"]
+
+# With parameters
+response = client.conversations.list_items(
+  conversation_id: conversation_id,
+  parameters: {
+    limit: 10,
+    order: "asc"
+  }
+)
+```
+
+##### Retrieving a Specific Item
+
+```ruby
+item = client.conversations.get_item(
+  conversation_id: conversation_id,
+  item_id: item_id
+)
+```
+
+##### Deleting an Item
+
+```ruby
+response = client.conversations.delete_item(
+  conversation_id: conversation_id,
+  item_id: item_id
+)
+```
+
 ### Assistants
 
 Assistants are stateful actors that can have many conversations and use tools to perform tasks (see [Assistant Overview](https://platform.openai.com/docs/assistants/overview)).
@@ -1180,7 +1343,7 @@ client.runs.create(
     assistant_id: assistant_id,
     max_prompt_tokens: 256,
     max_completion_tokens: 16,
-    stream: proc do |chunk, _bytesize|
+    stream: proc do |chunk, _event|
       if chunk["object"] == "thread.message.delta"
         print chunk.dig("delta", "content", 0, "text", "value")
       end
@@ -1564,6 +1727,21 @@ puts response.dig("data", 0, "url")
 
 ![Ruby](https://i.ibb.co/sWVh3BX/dalle-ruby.png)
 
+You can also upload arrays of images, eg.
+
+```ruby
+  client = OpenAI::Client.new
+  response = client.images.edit(
+    parameters: {
+      model: "gpt-image-1",
+      image: [File.open(base_image_path, "rb"), "image.png"],
+      prompt: "Take the first image as base and apply the second image as a watermark on the bottom right corner",
+      size: "1024x1024"
+      # Removed response_format parameter as it's not supported with gpt-image-1
+    }
+  )
+```
+
 ### Image Variations
 
 Create n variations of an image.
@@ -1624,6 +1802,20 @@ puts response["text"]
 # => "Transcription of the text"
 ```
 
+If you are using Ruby on Rails with Active Storage, you would need to send an audio or video file like this (User has_one_attached):
+```ruby
+user.media.blob.open do |file|
+  response = client.audio.transcribe(
+    parameters: {
+        model: "whisper-1",
+        file: File.open(file, "rb"),
+        language: "en" # Optional
+    })
+  puts response["text"]
+  # => "Transcription of the text"
+end
+```
+
 #### Speech
 
 The speech API takes as input the text and a voice and returns the content of an audio file you can listen to.
@@ -1640,6 +1832,33 @@ response = client.audio.speech(
 )
 File.binwrite('demo.mp3', response)
 # => mp3 file that plays: "This is a speech test!"
+```
+
+### Realtime
+
+The [Realtime API](https://platform.openai.com/docs/guides/realtime) allows you to create a live speech-to-speech session with an OpenAI model. It responds with a session object, plus a client_secret key which contains a usable ephemeral API token that can be used to [authenticate browser clients for a WebRTC connection](https://platform.openai.com/docs/guides/realtime#connect-with-webrtc).
+
+```ruby
+response = client.realtime.create(parameters: { model: "gpt-4o-realtime-preview-2024-12-17" })
+puts "ephemeral key: #{response.dig('client_secret', 'value')}"
+# => "ephemeral key: ek_abc123"
+```
+
+Then in the client-side Javascript application, make a POST request to the Real-Time API with the ephemeral key and the SDP offer.
+
+```js
+const OPENAI_REALTIME_URL = 'https://api.openai.com/v1/realtime/sessions'
+const MODEL = 'gpt-4o-realtime-preview-2024-12-17'
+
+const response = await fetch(`${OPENAI_REALTIME_URL}?model=${MODEL}`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/sdp',
+    'Authorization': `Bearer ${ephemeralKey}`,
+    'OpenAI-Beta': 'realtime=v1'
+  },
+  body: offer.sdp
+})
 ```
 
 ### Usage

@@ -10,8 +10,10 @@ require_relative "openai/responses"
 require_relative "openai/assistants"
 require_relative "openai/threads"
 require_relative "openai/messages"
+require_relative "openai/realtime"
 require_relative "openai/runs"
 require_relative "openai/run_steps"
+require_relative "openai/stream"
 require_relative "openai/vector_stores"
 require_relative "openai/vector_store_files"
 require_relative "openai/vector_store_file_batches"
@@ -19,6 +21,7 @@ require_relative "openai/audio"
 require_relative "openai/version"
 require_relative "openai/batches"
 require_relative "openai/usage"
+require_relative "openai/conversations"
 
 module OpenAI
   class Error < StandardError; end
